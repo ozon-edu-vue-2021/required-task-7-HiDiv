@@ -1,40 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="shortcut icon" href="i/favicon.ico" type="image/x-icon">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <link rel="stylesheet" href="./css/style.css">
-  <title>Тестовое задание</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="i/favicon.ico" type="image/x-icon">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="./css/style.css">
+    <title>Тестовое задание Иванов Дмитрий (HiDiv)</title>
 </head>
 <body>
-  <div id="container">
+<div id="container">
     <div class="list-view">
-      <ul class="contacts-list">
-        <li>
-          <strong>Павел</strong>
-        </li>
-      </ul>
+        <ul class="contacts-list"></ul>
     </div>
-    <div class="details-view">
-      <div class="back"></div>
-      <div class="background"></div>
-      <div><ul>
-        <li class="people-title">Друзья</li>
-        <li><i class="fa fa-male"></i><span >Иван</span></li>
-        <li><i class="fa fa-male"></i><span >Максим</span></li>
-        <li><i class="fa fa-male"></i><span >Марат</span></li>
-        <li class="people-title">Не в друзьях</li>
-        <li><i class="fa fa-male"></i><span >Вася</span></li>
-        <li><i class="fa fa-male"></i><span >Кирилл</span></li>
-        <li><i class="fa fa-male"></i><span >Степан</span></li>
-        <li class="people-title">Популярные люди</li>
-        <li><i class="fa fa-male"></i><span >Елена</span></li>
-        <li><i class="fa fa-male"></i><span >Оля</span></li>
-        <li><i class="fa fa-male"></i><span >Никита</span></li>
-      </ul></div>
+
+    <div class="details-view" style="display: none;">
+        <div class="back">
+            <span></span>
+        </div>
+
+        <div class="details-title">Друзья</div>
+        <ul id="in-friends"></ul>
+
+        <div class="details-title">Не в друзьях</div>
+        <ul id="not-in-friends"></ul>
+
+        <div class="details-title">Популярные люди</div>
+        <ul id="favor-peoples"></ul>
     </div>
-  </div>
+</div>
+
+<script type="module">
+    const contactsList = {};
+    const inFriends = {};
+
+    const contactsListDom = document.querySelector('.contacts-list');
+    const detailViewDom = document.querySelector('.details-view');
+    const selectedContact = detailViewDom.querySelector('.back span');
+
+    function addContactItem(id, name) {
+        const item = document.createElement('li');
+        item.contactId = id;
+        item.innerHTML = '<strong>' + name + '</strong>';
+        contactsListDom.append(item);
+    }
+
+    function getDetailItem(name) {
+        const item = document.createElement('li');
+        item.innerHTML = `<i class="fa fa-male"></i><span>${name}</span>`;
+        return item;
+    }
+
+    function getDetailItems(peopleIdsArr) {
+        const items = [];
+        for (let i = 0; i < 3; i++) {
+            items.push(getDetailItem(contactsList[peopleIdsArr[i]].name));
+        }
+        return items;
+    }
+
+    function fillDetailById(detailId, detailItems) {
+        const ul = document.getElementById(detailId);
+        ul.innerHTML = '';
+        ul.append(...detailItems);
+    }
+
+    function fillFriends(contactId) {
+        if (!contactsList[contactId].friendsDom) {
+            contactsList[contactId].friendsDom = getDetailItems(contactsList[contactId].friends);
+        }
+
+        fillDetailById('in-friends', contactsList[contactId].friendsDom);
+    }
+
+    function getNotInFriends(contactId) {
+        const friendsHash = contactsList[contactId].friends
+            .reduce((x, item) => ({ ...x, [item]: true }), {});
+        const list = [];
+
+        for (const id in contactsList) {
+            if (+id === +contactId || friendsHash[id]) {
+                continue;
+            }
+
+            list.push(id);
+            if (list.length >= 3) {
+                break;
+            }
+        }
+
+        return list;
+    }
+
+    function fillNotInFriends(contactId) {
+        if (!contactsList[contactId].notInFriendsDom) {
+            contactsList[contactId].notInFriendsDom = getDetailItems(getNotInFriends(contactId));
+        }
+
+        fillDetailById('not-in-friends', contactsList[contactId].notInFriendsDom);
+    }
+
+    function getTopFriends() {
+        return Object.keys(inFriends).sort((id1, id2) => {
+            if (inFriends[id1] > inFriends[id2] || inFriends[id1] === inFriends[id2] && contactsList[id1].name < contactsList[id2].name) {
+                return -1;
+            }
+            if (inFriends[id1] < inFriends[id2] || inFriends[id1] === inFriends[id2] && contactsList[id1].name > contactsList[id2].name) {
+                return +1;
+            }
+            return 0;
+        });
+    }
+
+    function fillTopFriends() {
+        fillDetailById('favor-peoples', getDetailItems(getTopFriends()));
+    }
+
+    function showDetail(contactId) {
+        selectedContact.innerHTML = contactsList[contactId].name;
+        fillFriends(contactId);
+        fillNotInFriends(contactId);
+        detailViewDom.style.display = null;
+    }
+
+    const res = await fetch('./data.json');
+    const data = await res.json();
+
+    data.forEach((contact) => {
+        contactsList[contact.id] = {
+            name: contact.name,
+            friends: contact.friends
+        };
+
+        contact.friends.forEach((friend) => inFriends[friend] ? inFriends[friend]++ : inFriends[friend] = 1);
+
+        addContactItem(contact.id, contact.name);
+    });
+
+    fillTopFriends();
+
+    contactsListDom.addEventListener('click', (event) => {
+        const item = event.target.tagName === 'LI' ? event.target : event.target.parentElement;
+        if (item.contactId) {
+            showDetail(item.contactId);
+        }
+    });
+
+    document.querySelector('.details-view .back').addEventListener('click', () => detailViewDom.style.display = 'none');
+</script>
 </body>
 </html>
